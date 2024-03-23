@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
     StyleSheet,
     View,
@@ -8,75 +8,109 @@ import {
     ScrollView,
     SafeAreaView,
     Image,
+    ImageBackground
 } from 'react-native';
-import { Connection, clusterApiUrl, PublicKey } from '@solana/web3.js';
+import { Connection, clusterApiUrl, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import LinearGradient from 'react-native-linear-gradient';
 import 'react-native-get-random-values';
+import { useFocusEffect } from '@react-navigation/native';
+import { AppState } from 'react-native';
+
+interface Transaction {
+    id: string;
+    amount: number; // SOL cinsinden miktar
+    date: string; // İşlem tarihi
+}
+
 
 const HomeScreen: React.FC = () => {
     const [cüzdanAdresi, setCüzdanAdresi] = useState<string>('');
     const [bakiye, setBakiye] = useState<number | null>(null);
     const [hata, setHata] = useState<string>('');
     const [cüzdanBağlandı, setCüzdanBağlandı] = useState<boolean>(false);
+    const [appState, setAppState] = useState(AppState.currentState);
+      const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-    const getCüzdanBakiyesi = async () => {
-        if (!cüzdanAdresi) {
-            setHata('Lütfen geçerli bir cüzdan adresi girin.');
+    const getCüzdanBakiyesi = useCallback(async () => {
+        const temizAdres = cüzdanAdresi.trim(); // Boşlukları kaldır
+        if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(temizAdres)) {
+            // Base58 formatını kontrol et
+            setHata('Cüzdan adresi geçerli değil. Lütfen adresi kontrol edin.');
             return;
         }
         try {
             const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
-            const cüzdan = new PublicKey(cüzdanAdresi);
+            const cüzdan = new PublicKey(temizAdres);
             const bakiyeLamports = await connection.getBalance(cüzdan);
-            setBakiye(bakiyeLamports / 10 ** 9); // Solana'daki bakiyeyi SOL cinsinden dönüştür
+            setBakiye(bakiyeLamports / LAMPORTS_PER_SOL); // Solana'daki bakiyeyi SOL cinsinden dönüştür
             setCüzdanBağlandı(true);
             setHata('');
         } catch (error) {
             console.error('Cüzdan bakiyesi sorgulanırken bir hata oluştu:', error);
             setHata('Bakiye sorgulanırken bir hata oluştu. Lütfen cüzdan adresini kontrol edin.');
         }
-    };
+    }, [cüzdanAdresi]);
+
+    useFocusEffect(
+        useCallback(() => {
+            if (cüzdanBağlandı) {
+                getCüzdanBakiyesi();
+            }
+        }, [cüzdanBağlandı, getCüzdanBakiyesi])
+    );
 
     return (
-    <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.scrollView}>
-            <LinearGradient
-                colors={['#6a11cb', '#2575fc']} // Mavi ve mor tonlarında renk geçişi
-                style={styles.gradient}
-            >
-            <View style={styles.topContainer}>
-                {!cüzdanBağlandı && (
-                        <>
-                <TextInput
-                style={styles.input}
-                placeholder="Enter your wallet address..."
-                placeholderTextColor="#fff"
-                value={cüzdanAdresi}
-                onChangeText={setCüzdanAdresi}
-                 />
-            <TouchableOpacity style={styles.button} onPress={getCüzdanBakiyesi}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Image source={require('../assets/Phantom.png')} style={styles.buttonImage} />
-                    <Text style={styles.buttonText}>Connect your Phantom Wallet</Text>
-                </View>
-            </TouchableOpacity>
-                    </>
+        <ImageBackground
+      style={styles.backgroundImage}
+      source={require('../assets/safe_pay_background.jpeg')}>
+        <SafeAreaView style={styles.container}>
+            <ScrollView style={styles.scrollView}>
+                <LinearGradient
+                    colors={['#6a11cb', '#2575fc']} // Mavi ve mor tonlarında renk geçişi
+                    style={styles.gradient}
+                >
+                    <View style={styles.topContainer}>
+                        {!cüzdanBağlandı ? (
+                            <>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Enter your wallet address..."
+                                    placeholderTextColor="#fff"
+                                    value={cüzdanAdresi}
+                                    onChangeText={setCüzdanAdresi}
+                                />
+                                <TouchableOpacity style={styles.button} onPress={getCüzdanBakiyesi}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Image source={require('../assets/Phantom.png')} style={styles.buttonImage} />
+                                        <Text style={styles.buttonText}>Connect your Phantom Wallet</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                {bakiye !== null && (
+                                    <View style={styles.bakiyeCard}>
+                                        <Text style={styles.bakiyeText}>Balance: {bakiye} SOL</Text>
+                                    </View>
+                                )}
+                                {hata !== '' && <Text style={styles.hataText}>{hata}</Text>}
+                            </>
                         )}
-                        {cüzdanBağlandı && bakiye !== null && (
-                            <View style={styles.bakiyeCard}>
-                                <Text style={styles.bakiyeText}>Balance: {bakiye} SOL</Text>
-                            </View>
-                        )}
-                        {hata !== '' && <Text style={styles.hataText}>{hata}</Text>}
                     </View>
                 </LinearGradient>
                 {/* İşlem geçmişini listeleyecek alan burada olacak */}
             </ScrollView>
         </SafeAreaView>
+        </ImageBackground>
     );
 };
 
 const styles = StyleSheet.create({
+    backgroundImage: {
+        flex: 1,
+        resizeMode: 'cover',
+        justifyContent: 'center'
+      },
     container: {
         flex: 1,
     },
@@ -152,3 +186,4 @@ const styles = StyleSheet.create({
 });
 
 export default HomeScreen;
+

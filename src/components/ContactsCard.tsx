@@ -24,7 +24,7 @@ const ContactsCard: React.FC<ContactsCardProps> = ({
   return (
     <View style={styles.card}>
       <TouchableOpacity style={styles.cardContent} onPress={onPress}>
-        <Text style={styles.name}>{name}</Text>
+        {/* <Text style={styles.name}>{name}</Text> */}
         <Text style={styles.phone}>{phone}</Text>
         {walletAddress && (
   <Text style={styles.walletAddress}>
@@ -71,8 +71,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#000', // Başlangıç rengi siyah
-  },
+    backgroundColor: '#000',
 });
 
 export default ContactsCard;

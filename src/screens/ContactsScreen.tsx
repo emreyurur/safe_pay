@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, PermissionsAndroid, Platform, StyleSheet, TouchableOpacity, Modal, TextInput, Image } from 'react-native';
+import { View, Text, FlatList, PermissionsAndroid, Platform, StyleSheet, TouchableOpacity, TextInput, Image, ImageBackground } from 'react-native';
 import Contacts, { Contact } from 'react-native-contacts';
-import axios from 'axios';
-import Send from '../components/Send';
-
+import { useNavigation } from '@react-navigation/native';
+import Dialog, { SlideAnimation, DialogContent, DialogTitle } from 'react-native-popup-dialog';
 
 interface ExtendedContact extends Contact {
   walletAddress?: string;
+  isFavorite?: boolean;
 }
 
 const ContactsScreen: React.FC = () => {
@@ -14,6 +14,7 @@ const ContactsScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedContact, setSelectedContact] = useState<ExtendedContact | null>(null);
   const [walletAddress, setWalletAddress] = useState('');
+  const navigation = useNavigation();
 
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -23,18 +24,12 @@ const ContactsScreen: React.FC = () => {
     }
   }, []);
 
-  const openSendModal = (address: any) => {
-    setSelectedAddress(address);
-    setModalVisible(true);
-  };
-
-
   const loadContacts = async () => {
     try {
-      const contactsList = await Contacts.getAll() as ExtendedContact[]; // ExtendedContact[] olarak tip dönüşümü
+      const contactsList = await Contacts.getAll() as ExtendedContact[];
       setContacts(contactsList);
     } catch (error) {
-      console.error('Kişileri yüklerken hata oluştu:', error);
+      console.error('Error loading contacts:', error);
     }
   };
 
@@ -43,175 +38,158 @@ const ContactsScreen: React.FC = () => {
       const granted = await PermissionsAndroid.request(
         PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
         {
-          title: 'Kişiler Erişimi',
-          message: 'Uygulama kişilerinize erişmek için izninize ihtiyaç duyar.',
-          buttonNeutral: 'Sonra Sor',
-          buttonNegative: 'İptal',
-          buttonPositive: 'Tamam',
+          title: 'Contacts Permission',
+          message: 'The app needs access to your contacts.',
+          buttonNeutral: 'Ask Me Later',
+          buttonNegative: 'Cancel',
+          buttonPositive: 'OK',
         },
       );
       if (granted === PermissionsAndroid.RESULTS.GRANTED) {
         loadContacts();
       } else {
-        console.log('Kişilere erişim izni reddedildi.');
+        console.log('Contacts permission denied.');
       }
     } catch (err) {
-      console.warn('İzin isteme sırasında hata oluştu:', err);
+      console.warn('Error requesting contacts permission:', err);
     }
   };
 
-  const saveWalletAddress = async () => {
+  const saveWalletAddress = () => {
     if (selectedContact && walletAddress) {
-      try {
-        const endpoint = 'http://192.168.14.51:3000/user';
-
-        const data = {
-          name: "Emre",
-          wallet: walletAddress,
-          number: "5348124821",
-          image: "123ey"
-        };
-
-        const response = await axios.post(endpoint, data);
-
-        console.log('Kaydedildi:', response.data);
-
-        setContacts(prevContacts => {
-          return prevContacts.map(contact => {
-            if (contact.recordID === selectedContact?.recordID) {
-              return {
-                ...contact,
-                walletAddress: walletAddress // Cüzdan adresini kaydet
-              };
-            }
-            return contact;
-          });
+      setContacts(prevContacts => {
+        return prevContacts.map(contact => {
+          if (contact.recordID === selectedContact?.recordID) {
+            return {
+              ...contact,
+              walletAddress: walletAddress
+            };
+          }
+          return contact;
         });
-
-        setModalVisible(false);
-      } catch (error) {
-        // Hata oluşursa console'a yazdırma
-        console.error('Adres kaydedilirken hata oluştu:', error);
-      }
+      });
+      setModalVisible(false);
     }
   };
 
-  const renderContactModal = () => {
-    return (
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => {
-          setModalVisible(!modalVisible);
-        }}>
-        <View style={styles.centeredView}>
-          <View style={styles.modalView}>
+  const toggleFavorite = (recordID: string) => {
+    setContacts(prevContacts => {
+      return prevContacts.map(contact => {
+        if (contact.recordID === recordID) {
+          return {
+            ...contact,
+            isFavorite: !contact.isFavorite,
+          };
+        }
+        return contact;
+      });
+    });
+  };
+
+  const handleWalletAddressPress = (address: string | undefined) => {
+    if (address) {
+      navigation.navigate('SendScreen', { address });
+    }
+  };
+
+  return (
+    <ImageBackground
+      style={styles.backgroundImage}
+      source={require('../assets/safe_pay_background.jpeg')}>
+      <View style={styles.container}>
+        <FlatList
+          data={contacts}
+          keyExtractor={(item) => item.recordID}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => {
+                setSelectedContact(item);
+                setModalVisible(true);
+              }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <View>
+                  <Text style={styles.name}>{item.givenName}</Text>
+                  <Text style={styles.phone}>{item.phoneNumbers[0]?.number}</Text>
+                  {item.walletAddress && (
+                    <TouchableOpacity onPress={() => handleWalletAddressPress(item.walletAddress)}>
+                      <Text style={[styles.walletAddress, styles.clickableText]}>Solana Address:</Text>
+                      <Text style={[styles.walletAddress, styles.clickableText]}>{item.walletAddress}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View>
+                  <TouchableOpacity style={styles.favoriteButton} onPress={() => toggleFavorite(item.recordID)}>
+                    <Image style={styles.favoriteIcon} source={item.isFavorite ? require('../assets/favorite_yellow.png') : require('../assets/favorite.png')} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+        <Dialog
+          visible={modalVisible}
+          onTouchOutside={() => setModalVisible(false)}
+          dialogAnimation={new SlideAnimation({ slideFrom: 'bottom' })}>
+          <DialogContent style={styles.modalView}>
             {selectedContact && (
               <>
                 <Text style={styles.contactName}>{selectedContact.givenName}</Text>
                 <Text style={styles.contactPhone}>{selectedContact.phoneNumbers[0]?.number}</Text>
               </>
             )}
-            <Text style={styles.modalText}>Phantom Wallet Adresini Giriniz:</Text>
+            <Text style={styles.modalText}>Enter Solana Wallet Address:</Text>
             <TextInput
               style={styles.modalInput}
               onChangeText={setWalletAddress}
               value={walletAddress}
-              placeholder="Phantom Wallet Adresi"
+              placeholder="Solana Wallet Address"
             />
-            <TouchableOpacity
-              style={styles.buttonSave}
-              onPress={() => saveWalletAddress()}>
-              <Text style={styles.textStyle}>Kaydet</Text>
+            <TouchableOpacity style={styles.buttonSave} onPress={saveWalletAddress}>
+              <Text style={styles.textStyle}>Save</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.buttonSave, { backgroundColor: 'red' }]}
-              onPress={() => setModalVisible(false)}>
-              <Text style={styles.textStyle}>Kapat</Text>
+            <TouchableOpacity style={[styles.buttonSave, { backgroundColor: 'red' }]} onPress={() => setModalVisible(false)}>
+              <Text style={styles.textStyle}>Close</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
-  function handleFavoritePress(item: ExtendedContact): void {
-    throw new Error('Function not implemented.');
-  }
-
-  function handleWalletAddressPress(walletAddress: string | undefined): void {
-    throw new Error('Function not implemented.');
-  }
-
-  return (
-    <View style={styles.container}>
-      <FlatList
-        data={contacts}
-        keyExtractor={(item) => item.recordID}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
-            onPress={() => {
-              setSelectedContact(item);
-              setModalVisible(true);
-            }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <View>
-                <Text style={styles.name}>{item.givenName}</Text>
-                <Text style={styles.phone}>{item.phoneNumbers[0]?.number}</Text>
-                {item.walletAddress && (
-                <TouchableOpacity onPress={() => handleWalletAddressPress(item.walletAddress)}>
-                  <Text>Solana Address:</Text>
-              <Text style={[styles.walletAddress, styles.clickableText]}>{item.walletAddress}</Text>
-              </TouchableOpacity>
-              )}
-              </View>
-
-              <TouchableOpacity onPress={() => handleFavoritePress(item)}>
-                <Image source={require('../assets/favorite.png')} style={styles.favoriteIcon} />
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        )}
-      />
-      {renderContactModal()}
-    </View>
+          </DialogContent>
+        </Dialog>
+      </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    resizeMode:'cover',
+    justifyContent: 'center'
+  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   card: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#C9CCD5',
     padding: 15,
     marginVertical: 5,
-    borderRadius: 10,
+    borderRadius: 15,
+    margin:10,
+    marginTop:10
   },
   name: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 5,
+    color:"black"
   },
   phone: {
-    fontSize: 14,
-    color: 'grey',
+    fontSize: 18,
+    color:"black"
   },
   walletAddress: {
-    fontSize: 14,
+    fontSize: 20,
     color: 'blue',
   },
-  centeredView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 22,
-  },
   modalView: {
-    margin: 20,
     backgroundColor: 'white',
     borderRadius: 20,
     padding: 35,
@@ -226,7 +204,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   modalText: {
-    marginBottom: 15,
+    marginBottom:15,
     textAlign: 'center',
     fontSize: 18,
     fontWeight: 'bold',
@@ -247,6 +225,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 10,
     width: '100%',
+    alignItems: 'center',
   },
   textStyle: {
     color: 'white',
@@ -254,23 +233,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   contactName: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 5,
   },
   contactPhone: {
-    fontSize: 14,
+    fontSize: 18,
     color: 'grey',
     marginBottom: 15,
   },
   favoriteIcon: {
-    width: 24,
-    height: 24,
+    height: 18,
+    width: 18,
   },
-
   clickableText: {
     textDecorationLine: 'underline',
-    fontSize: 12, // Tıklanabilir metin için belirlenen font boyutu
+    fontSize: 18,
+    color: '#8109B7',
+  },
+  favoriteButton: {
+    position: 'absolute',
+    right: 10,
+    top: '50%',
+    transform: [{ translateY: -9 }],
   },
 });
 

@@ -1,8 +1,10 @@
 import React from "react";
-import { View, Text, Image,StyleSheet} from "react-native";
+import { View, Text, Image, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Buffer } from "buffer";
+global.Buffer = Buffer;
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -11,65 +13,74 @@ import HomeScreen from "./src/screens/HomeScreen";
 import ContactsScreen from "./src/screens/ContactsScreen";
 import SafePay from "./src/screens/SafePay.Screen";
 import FavoritesScreen from "./src/screens/FavoritesScreen";
+import SendScreen from "./src/screens/SendScreen";
 
 const homeIcon = require('./src/assets/home_icon.png');
 const contactsIcon = require('./src/assets/contacts.png');
 const safePayIcon = require('./src/assets/payment.png');
-const favoritesIcon=require('./src/assets/favorite.png');
+const favoritesIcon = require('./src/assets/favorite.png');
 
 const App = () => {
   return (
     <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          tabBarIcon: ({ focused, color, size }) => {
-            let iconSource;
-
-            if (route.name === 'Home') {
-              iconSource = homeIcon;
-            } else if (route.name === 'Contacts') {
-              iconSource = contactsIcon;
-            } else if (route.name === 'SafePay') {
-              iconSource = safePayIcon;
-            } else if (route.name === 'Favorites'){
-              iconSource = favoritesIcon;
-            }
-
-            return <Image source={iconSource} style={{ width: 24, height: 24, tintColor: focused ? 'blue' : 'gray' }} />;
-          },
-          tabBarLabel: ({ focused, color }) => {
-            let label;
-
-            if (route.name === 'Home') {
-              label = 'Home';
-            } else if (route.name === 'Contacts') {
-              label = 'Contacts';
-            } else if (route.name === 'SafePay') {
-              label = 'SafePay';
-            }
-            else if (route.name === 'Favorites'){
-              label="Favorites";
-            }
-            return <Text style={{ fontSize: 15,fontWeight:"bold", color: focused ? 'blue' : 'gray' }}>{label}</Text>;
-          },
-        })}
-        tabBarOptions={{
-          activeTintColor: 'blue', // Aktif sekme rengi
-          inactiveTintColor: 'gray', // Pasif sekme rengi
-          showLabel: true, // Metin etiketlerini göster
-          style: {
-            backgroundColor: '#fff', // Tab bar rengini değiştirin
-            borderTopWidth: 1,
-            borderTopColor: '#ccc', // Kenarlığın rengini ayarlayın
-          },
-        }}
-      >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Favorites" component={FavoritesScreen}/>
-        <Tab.Screen name="Contacts" component={ContactsScreen} />
-        <Tab.Screen name="SafePay" component={SafePay} />
-      </Tab.Navigator>
+      <Stack.Navigator>
+        <Stack.Screen name="TabNavigator" component={TabNavigator} options={{ headerShown: false }} />
+        <Stack.Screen name="SendScreen" component={SendScreen} />
+      </Stack.Navigator>
     </NavigationContainer>
+  );
+};
+
+const TabNavigator = () => {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconSource;
+
+          if (route.name === 'Home') {
+            iconSource = homeIcon;
+          } else if (route.name === 'Contacts') {
+            iconSource = contactsIcon;
+          } else if (route.name === 'SafePay') {
+            iconSource = safePayIcon;
+          } else if (route.name === 'Favorites') {
+            iconSource = favoritesIcon;
+          }
+
+          return <Image source={iconSource} style={{ width: 24, height: 24, tintColor: focused ? 'blue' : 'gray' }} />;
+        },
+        tabBarLabel: ({ focused, color }) => {
+          let label;
+
+          if (route.name === 'Home') {
+            label = 'Home';
+          } else if (route.name === 'Contacts') {
+            label = 'Contacts';
+          } else if (route.name === 'SafePay') {
+            label = 'SafePay';
+          } else if (route.name === 'Favorites') {
+            label = "Favorites";
+          }
+          return <Text style={{ fontSize: 15, fontWeight: "bold", color: focused ? 'blue' : 'gray' }}>{label}</Text>;
+        },
+      })}
+      tabBarOptions={{
+        activeTintColor: 'blue', // Aktif sekme rengi
+        inactiveTintColor: 'gray', // Pasif sekme rengi
+        showLabel: true, // Metin etiketlerini göster
+        style: {
+          backgroundColor: '#fff', // Tab bar rengini değiştirin
+          borderTopWidth: 1,
+          borderTopColor: '#ccc', // Kenarlığın rengini ayarlayın
+        },
+      }}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} />
+      <Tab.Screen name="Contacts" component={ContactsScreen} />
+      <Tab.Screen name="SafePay" component={SafePay} />
+    </Tab.Navigator>
   );
 };
 
